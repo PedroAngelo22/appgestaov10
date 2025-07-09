@@ -358,63 +358,69 @@ elif st.session_state.authenticated:
 
                                     log_action(username, "visualizar", full_path)
 
-# PESQUISA POR PALAVRA-CHAVE COM LEITURA INTERNA DE PDF
-if "download" in user_permissions or "view" in user_permissions:
-    st.markdown("### 🔍 Pesquisa de Documentos")
-    keyword = st.text_input("Buscar por palavra-chave")
-    if keyword:
-        matched = []
-        for root, dirs, files in os.walk(BASE_DIR):
-            for file in files:
-                full_path = os.path.join(root, file)
-                if not os.path.isfile(full_path):
-                    continue
+elif st.session_state.authenticated:
+    username = st.session_state.username
+    user_data = c.execute("SELECT projects, permissions FROM users WHERE username=?", (username,)).fetchone()
+    user_projects = user_data[0].split(',') if user_data and user_data[0] else []
+    user_permissions = user_data[1].split(',') if user_data and user_data[1] else []
 
-                match_found = False
-                if keyword.lower() in file.lower():
-                    match_found = True
-                elif file.lower().endswith(".pdf"):
-                    try:
-                        doc = fitz.open(full_path)
-                        text = ""
-                        for page in doc:
-                            text += page.get_text()
-                        doc.close()
-                        if keyword.lower() in text.lower():
-                            match_found = True
-                    except Exception as e:
-                        st.warning(f"Erro ao ler conteúdo do PDF `{file}`: {str(e)}")
+    # PESQUISA POR PALAVRA-CHAVE COM LEITURA INTERNA DE PDF
+    if "download" in user_permissions or "view" in user_permissions:
+        st.markdown("### 🔍 Pesquisa de Documentos")
+        keyword = st.text_input("Buscar por palavra-chave")
+        if keyword:
+            matched = []
+            for root, dirs, files in os.walk(BASE_DIR):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    if not os.path.isfile(full_path):
+                        continue
 
-                if match_found:
-                    matched.append(full_path)
+                    match_found = False
+                    if keyword.lower() in file.lower():
+                        match_found = True
+                    elif file.lower().endswith(".pdf"):
+                        try:
+                            doc = fitz.open(full_path)
+                            text = ""
+                            for page in doc:
+                                text += page.get_text()
+                            doc.close()
+                            if keyword.lower() in text.lower():
+                                match_found = True
+                        except Exception as e:
+                            st.warning(f"Erro ao ler conteúdo do PDF `{file}`: {str(e)}")
 
-        if matched:
-            for file in matched:
-                st.write(f"📄 {os.path.relpath(file, BASE_DIR)}")
-                with open(file, "rb") as f:
-                    b64 = base64.b64encode(f.read()).decode("utf-8")
-                    if file.lower().endswith(".pdf"):
-                        href = f'<a href="data:application/pdf;base64,{b64}" target="_blank">👁️ Visualizar PDF</a>'
-                        if st.button("👁️ Visualizar PDF", key=hash_key("btnk_" + file)):
-                            st.markdown(href, unsafe_allow_html=True)
-                        f.seek(0)
-                        if "download" in user_permissions:
-                            st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(file), mime="application/pdf", key=hash_key("dlk_" + file))
-                    elif file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                        st.image(f.read(), caption=os.path.basename(file))
-                        f.seek(0)
-                        if "download" in user_permissions:
-                            st.download_button("📥 Baixar Imagem", f, file_name=os.path.basename(file), key=hash_key("imgk_" + file))
-                    else:
-                        if "download" in user_permissions:
-                            st.download_button("📥 Baixar Arquivo", f, file_name=os.path.basename(file), key=hash_key("othk_" + file))
-                log_action(username, "visualizar", file)
-        else:
-            st.warning("Nenhum arquivo encontrado.")
+                    if match_found:
+                        matched.append(full_path)
 
-# HISTÓRICO DE AÇÕES
-st.markdown("### 📜 Histórico de Ações")
-if st.checkbox("Mostrar log"):
-    logs = c.execute("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50").fetchall()
-    for row in logs:
-        st.write(f"{row[0]} | Usuário: {row[1]} | Ação: {row[2]} | Arquivo: {row[3]}")
+            if matched:
+                for file in matched:
+                    st.write(f"📄 {os.path.relpath(file, BASE_DIR)}")
+                    with open(file, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode("utf-8")
+                        if file.lower().endswith(".pdf"):
+                            href = f'<a href="data:application/pdf;base64,{b64}" target="_blank">👁️ Visualizar PDF</a>'
+                            if st.button("👁️ Visualizar PDF", key=hash_key("btnk_" + file)):
+                                st.markdown(href, unsafe_allow_html=True)
+                            f.seek(0)
+                            if "download" in user_permissions:
+                                st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(file), mime="application/pdf", key=hash_key("dlk_" + file))
+                        elif file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                            st.image(f.read(), caption=os.path.basename(file))
+                            f.seek(0)
+                            if "download" in user_permissions:
+                                st.download_button("📥 Baixar Imagem", f, file_name=os.path.basename(file), key=hash_key("imgk_" + file))
+                        else:
+                            if "download" in user_permissions:
+                                st.download_button("📥 Baixar Arquivo", f, file_name=os.path.basename(file), key=hash_key("othk_" + file))
+                    log_action(username, "visualizar", file)
+            else:
+                st.warning("Nenhum arquivo encontrado.")
+
+    # HISTÓRICO DE AÇÕES
+    st.markdown("### 📜 Histórico de Ações")
+    if st.checkbox("Mostrar log"):
+        logs = c.execute("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50").fetchall()
+        for row in logs:
+            st.write(f"{row[0]} | Usuário: {row[1]} | Ação: {row[2]} | Arquivo: {row[3]}")
