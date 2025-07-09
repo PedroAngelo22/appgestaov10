@@ -364,7 +364,7 @@ elif st.session_state.authenticated:
     user_projects = user_data[0].split(',') if user_data and user_data[0] else []
     user_permissions = user_data[1].split(',') if user_data and user_data[1] else []
 
-    # PESQUISA POR PALAVRA-CHAVE COM LEITURA INTERNA DE PDF
+    # PESQUISA POR PALAVRA-CHAVE (se houver permissões view/download)
     if "download" in user_permissions or "view" in user_permissions:
         st.markdown("### 🔍 Pesquisa de Documentos")
         keyword = st.text_input("Buscar por palavra-chave")
@@ -418,7 +418,7 @@ elif st.session_state.authenticated:
             else:
                 st.warning("Nenhum arquivo encontrado.")
 
-    # HISTÓRICO DE AÇÕES
+    # HISTÓRICO DE AÇÕES (sempre aparece quando autenticado)
     st.markdown("### 📜 Histórico de Ações")
     if st.checkbox("Mostrar log"):
         logs = c.execute("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50").fetchall()
