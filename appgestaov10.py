@@ -6,7 +6,7 @@ from datetime import datetime
 import streamlit as st
 import sqlite3
 import re
-import fitz  # Biblioteca PyMuPDF para leitura de conteúdo PDF
+import fitz  # Para leitura de conteúdo interno dos PDFs
 
 # Banco de dados SQLite
 conn = sqlite3.connect('document_manager.db', check_same_thread=False)
@@ -60,7 +60,6 @@ def hash_key(text):
     return hashlib.md5(text.encode()).hexdigest()
 
 def extrair_info_arquivo(nome_arquivo):
-    # Permite nomes com textos antes/depois, sem separador obrigatório antes do rXvY
     padrao = r"(.+?)r(\d+)v(\d+).*?\.\w+$"
     match = re.match(padrao, nome_arquivo)
     if match:
@@ -267,7 +266,7 @@ elif st.session_state.authenticated:
                             existe_revisao_anterior = any(r[1] != revisao for r in revisoes_anteriores)
                             mesma_revisao_outras_versoes = any(r[1] == revisao and r[2] != versao for r in revisoes_anteriores)
 
-                            if existe_revisao_anterior and all(r[1] != revisao for r in revisoes_anteriores):
+                            if existe_revisao_anterior:
                                 pasta_revisao = os.path.join(path, "Revisoes", nome_base)
                                 os.makedirs(pasta_revisao, exist_ok=True)
                                 for f, _, _ in revisoes_anteriores:
@@ -357,14 +356,7 @@ elif st.session_state.authenticated:
                                                                 st.download_button("📥 Baixar", rf, file_name=rev_file, key=hash_key("dl_rev_" + rev_path))
 
                                     log_action(username, "visualizar", full_path)
-
-elif st.session_state.authenticated:
-    username = st.session_state.username
-    user_data = c.execute("SELECT projects, permissions FROM users WHERE username=?", (username,)).fetchone()
-    user_projects = user_data[0].split(',') if user_data and user_data[0] else []
-    user_permissions = user_data[1].split(',') if user_data and user_data[1] else []
-
-    # PESQUISA POR PALAVRA-CHAVE (se houver permissões view/download)
+    # PESQUISA POR PALAVRA-CHAVE (NOME + CONTEÚDO PDF)
     if "download" in user_permissions or "view" in user_permissions:
         st.markdown("### 🔍 Pesquisa de Documentos")
         keyword = st.text_input("Buscar por palavra-chave")
@@ -389,7 +381,7 @@ elif st.session_state.authenticated:
                             if keyword.lower() in text.lower():
                                 match_found = True
                         except Exception as e:
-                            st.warning(f"Erro ao ler conteúdo do PDF `{file}`: {str(e)}")
+                            st.warning(f"Erro ao ler PDF `{file}`: {str(e)}")
 
                     if match_found:
                         matched.append(full_path)
@@ -418,7 +410,7 @@ elif st.session_state.authenticated:
             else:
                 st.warning("Nenhum arquivo encontrado.")
 
-    # HISTÓRICO DE AÇÕES (sempre aparece quando autenticado)
+    # HISTÓRICO DE AÇÕES (sempre visível para autenticados)
     st.markdown("### 📜 Histórico de Ações")
     if st.checkbox("Mostrar log"):
         logs = c.execute("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50").fetchall()
